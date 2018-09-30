@@ -3,15 +3,31 @@
 
 from argparse import ArgumentParser
 from xml.etree import ElementTree
+import datetime
+import re
 
 
 class Person:
+    REGEX_SPLIT_PERON_DATA = re.compile(r"""(?P<name>[^\*]*)\*?(?P<birth>[^†]*)†?(?P<death>.*)""")
+    REGEX_NAME_PREFIX = re.compile(r"""\(\d+\)""")
     def __init__(self, id, data):
         self.id = id
         self.parse_data(data)
 
     def parse_data(self, data):
-        self.data = data
+        data = data.replace("\n", "")
+        match = self.REGEX_SPLIT_PERON_DATA.match(data)
+        self.name = self.REGEX_NAME_PREFIX.sub("", match.group("name")).strip()
+        try:
+            self.birth = datetime.datetime.strptime(match.group("birth").strip(), "%d.%m.%Y")
+        except ValueError as e:
+            print(self.name, "(birth)", "->", e)
+            self.birth = None
+        try:
+            self.death = datetime.datetime.strptime(match.group("death").strip(), "%d.%m.%Y")
+        except ValueError as e:
+            print(self.name, "(death)", "->", e)
+            self.death = None
 
     def __repr__(self):
         return "Person%d" % self.id
