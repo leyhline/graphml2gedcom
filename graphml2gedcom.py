@@ -87,13 +87,53 @@ def parse_graphml(path):
     persons, families = parse_nodes(nodes)
     relations = parse_edges(edges)
     print("Detected:", len(persons), "persons,", len(families), "families,", len(relations), "relations")
+    return persons, families, relations
+
+
+def create_person_entries(persons, relations):
+    gedcom = []
+    child_dict = {rel.target:rel.source for rel in relations}
+    spouse_dict = {rel.source:rel.target for rel in relations}
+    for person in persons:
+        entry = "0 @I{id}@ INDI\n1 NAME {name}".format(id=person.id, name=person.name)
+        if person.birth:
+            entry += "\n1 BIRT\n2 DATE {date}".format(date=person.birth.strftime("%d %b %Y").upper())
+        if person.death:
+            entry += "\n1 DEAT\n2 DATE {date}".format(date=person.death.strftime("%d %b %Y").upper())
+        if person.id in child_dict:
+            entry += "\n1 FAMC @F{id}@".format(id=child_dict[person.id])
+        if person.id in spouse_dict:
+            entry += "\n1 FAMS @F{id}@".format(id=spouse_dict[person.id])
+        gedcom.append(entry)
+    return "\n".join(gedcom)
+
+
+def create_family_entries(families):
+    gedcom = "\n".join("0 @F{id}@ FAM".format(id=family.id) for family in families)
+    return gedcom
+
+
+def create_gedcom(persons, families, relations):
+    gedcom = "0 HEAD\n1 SOUR UNSPECIFIED\n1 GEDC\n2 VERS 5.5\n2 FORM LINEAGE-LINKED\n1 CHAR ANSEL"
+    gedcom += "\n" + create_person_entries(persons, relations)
+    gedcom += "\n" + create_family_entries(families)
+    gedcom += "\n0 TRLR"
+    return gedcom
 
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument("input")
+    parser.add_argument("input", help="Path to .graphml input file.")
+    parser.add_argument("-o", "--output", help="Path where .ged output file should be written.")
     args = parser.parse_args()
-    parse_graphml(args.input)
+    persons, families, relations = parse_graphml(args.input)
+    gedcom = create_gedcom(persons, families, relations)
+    if not args.output:
+        print(gedcom)
+        return
+    with open(args.output, "w") as fd:
+        fd.write(gedcom)
+    print(args.output, "written.")
 
 
 if __name__ == "__main__":
