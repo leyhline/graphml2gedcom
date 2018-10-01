@@ -130,7 +130,7 @@ def create_family_entries(families, relations):
 
 
 def create_gedcom(persons, families, relations):
-    gedcom = "0 HEAD\n1 SOUR UNSPECIFIED\n1 GEDC\n2 VERS 5.5\n2 FORM LINEAGE-LINKED"
+    gedcom = "0 HEAD\n1 SOUR UNSPECIFIED\n1 GEDC\n2 VERS 5.5.1\n2 FORM Lineage-Linked\n1 CHAR UTF-8"
     gedcom += "\n" + create_person_entries(persons, relations)
     gedcom += "\n" + create_family_entries(families, relations)
     gedcom += "\n0 TRLR"
@@ -144,6 +144,7 @@ def main():
     args = parser.parse_args()
     persons, families, relations = parse_graphml(args.input)
     gedcom = create_gedcom(persons, families, relations)
+    gedcom = gedcom.replace("\n\n", "\n")
     if not args.output:
         print(gedcom)
         return
