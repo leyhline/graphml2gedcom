@@ -90,33 +90,49 @@ def parse_graphml(path):
     return persons, families, relations
 
 
+def create_child_gedcom(person_id, relations):
+    return "\n".join("1 FAMC @F{id}@".format(id=relation.source) for relation in relations if person_id == relation.target)
+
+
+def create_spouse_gedcom(person_id, relations):
+    return "\n".join("1 FAMS @F{id}@".format(id=relation.target) for relation in relations if person_id == relation.source)
+
+
 def create_person_entries(persons, relations):
     gedcom = []
-    child_dict = {rel.target:rel.source for rel in relations}
-    spouse_dict = {rel.source:rel.target for rel in relations}
     for person in persons:
         entry = "0 @I{id}@ INDI\n1 NAME {name}".format(id=person.id, name=person.name)
         if person.birth:
             entry += "\n1 BIRT\n2 DATE {date}".format(date=person.birth.strftime("%d %b %Y").upper())
         if person.death:
             entry += "\n1 DEAT\n2 DATE {date}".format(date=person.death.strftime("%d %b %Y").upper())
-        if person.id in child_dict:
-            entry += "\n1 FAMC @F{id}@".format(id=child_dict[person.id])
-        if person.id in spouse_dict:
-            entry += "\n1 FAMS @F{id}@".format(id=spouse_dict[person.id])
+        entry += "\n" + create_child_gedcom(person.id, relations)
+        entry += "\n" + create_spouse_gedcom(person.id, relations)
         gedcom.append(entry)
     return "\n".join(gedcom)
 
 
-def create_family_entries(families):
-    gedcom = "\n".join("0 @F{id}@ FAM".format(id=family.id) for family in families)
-    return gedcom
+def create_relations_gedcom(family_id, relations):
+    children = [relation.target for relation in relations if relation.source == family_id]
+    spouses = [relation.source for relation in relations if relation.target == family_id]
+    children_gedcom = "\n".join("1 CHIL @I{id}@".format(id=child) for child in children)
+    spouses_gedcom = "\n".join("1 HUSB @I{id}@".format(id=spouse) for spouse in spouses)
+    return children_gedcom + "\n" + spouses_gedcom
+
+
+def create_family_entries(families, relations):
+    gedcom = []
+    for family in families:
+        entry = "0 @F{id}@ FAM".format(id=family.id)
+        entry += "\n" + create_relations_gedcom(family.id, relations)
+        gedcom.append(entry)
+    return "\n".join(gedcom)
 
 
 def create_gedcom(persons, families, relations):
-    gedcom = "0 HEAD\n1 SOUR UNSPECIFIED\n1 GEDC\n2 VERS 5.5\n2 FORM LINEAGE-LINKED\n1 CHAR ANSEL"
+    gedcom = "0 HEAD\n1 SOUR UNSPECIFIED\n1 GEDC\n2 VERS 5.5\n2 FORM LINEAGE-LINKED"
     gedcom += "\n" + create_person_entries(persons, relations)
-    gedcom += "\n" + create_family_entries(families)
+    gedcom += "\n" + create_family_entries(families, relations)
     gedcom += "\n0 TRLR"
     return gedcom
 
