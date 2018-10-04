@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 
 
+"""
+graphml2gedcom.py
+
+A short script for converting a family tree build with yEd and saved in graphml format
+to gedcom. Graphml is simple XML:
+
+- Nodes are persons and families.
+- Edges are relations.
+- Persons most of the time have a description with name as well as dates for birth and death.
+- Since there are no informations about sex I assume everyone is male.
+- Therefore, the outputted gedcom needs to be manually edited afterwards.
+"""
+
+
 from argparse import ArgumentParser
 from xml.etree import ElementTree
 import datetime
@@ -15,6 +29,7 @@ class Person:
         self.parse_data(data)
 
     def parse_data(self, data):
+        """Parse description of person node and extract name and dates."""
         data = data.replace("\n", "")
         match = self.REGEX_SPLIT_PERON_DATA.match(data)
         self.name = self.REGEX_NAME_PREFIX.sub("", match.group("name")).strip()
@@ -52,6 +67,7 @@ class Relation:
 
 
 def id2int(graphid):
+    """Convert ids from graphml (e for edge, n for node) to integers."""
     assert graphid[0] in ["e", "n"]
     return int(graphid[1:])
 
@@ -65,6 +81,7 @@ def parse_xmltree(tree):
 
 
 def parse_nodes(nodes):
+    """Parse nodes, returning a list of persons and a list of families."""
     nodes = [(node.attrib["id"], node.findall(".//{http://www.yworks.com/xml/graphml}NodeLabel")) for node in nodes]
     nodes = [(node[0], [label.text for label in node[1] if len(label.text.strip()) > 0]) for node in nodes]
     persons = list(filter(lambda x: len(x[1]) > 0, nodes))
@@ -76,11 +93,13 @@ def parse_nodes(nodes):
 
 
 def parse_edges(edges):
+    """Parse edges returning a list of relations."""
     relations = [Relation(id2int(edge.attrib["id"]), id2int(edge.attrib["source"]), id2int(edge.attrib["target"])) for edge in edges]
     return relations
 
 
 def parse_graphml(path):
+    """Parse a whole graphml file returning lists of persons, families and relations."""
     tree = ElementTree.parse(path)
     nodes, edges = parse_xmltree(tree)
     print("Found:", len(nodes), "nodes,", len(edges), "edges")
@@ -99,6 +118,7 @@ def create_spouse_gedcom(person_id, relations):
 
 
 def create_person_entries(persons, relations):
+    """Create gedcom strings from a list of persons."""
     gedcom = []
     for person in persons:
         entry = "0 @I{id}@ INDI\n1 NAME {name}".format(id=person.id, name=person.name)
@@ -121,6 +141,7 @@ def create_relations_gedcom(family_id, relations):
 
 
 def create_family_entries(families, relations):
+    """Create gedcom string from a list of families."""
     gedcom = []
     for family in families:
         entry = "0 @F{id}@ FAM".format(id=family.id)
@@ -130,6 +151,7 @@ def create_family_entries(families, relations):
 
 
 def create_gedcom(persons, families, relations):
+    """Create a whole gedcom string for directly writing into a file."""
     gedcom = "0 HEAD\n1 SOUR UNSPECIFIED\n1 GEDC\n2 VERS 5.5.1\n2 FORM Lineage-Linked\n1 CHAR UTF-8"
     gedcom += "\n" + create_person_entries(persons, relations)
     gedcom += "\n" + create_family_entries(families, relations)
